@@ -1,0 +1,17 @@
+name: lpc
+channels: [conda-forge, defaults]
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy>=1.12
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - pytest
+  - pyamg
+  - petsc4py        # optional: Day 6. Fall back to pyamg if install fails
+  - jupyter
+  - pip
+  - pip:
+      - torch        # CPU build is enough
+      - torch_geometric
