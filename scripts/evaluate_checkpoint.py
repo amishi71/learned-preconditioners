@@ -34,12 +34,17 @@ def with_G(G):
     return operator_from_factor(G), G
 
 
+def wide_ok(A):
+    """tril2 (A^2 pattern) explodes on dense-row matrices (e.g. SuiteSparse ~48 nnz/row): only run it on sparse stencils."""
+    return A.shape[0] <= 20000 and A.nnz / A.shape[0] <= 8
+
+
 methods = {
     "none": lambda A: (None, None),
     "jacobi": lambda A: (jacobi(A), None),
     "ic0": lambda A: (ic0_precond(A), None) if A.shape[0] <= 4096 else (None, None),
     "fsai_tril": lambda A: with_G(fsai(A)),
-    "fsai_tril2": lambda A: with_G(fsai(A, pattern=pattern_matrix(unit_diag_scale(A)[0], "tril2"))),
+    "fsai_tril2": lambda A: with_G(fsai(A, pattern=pattern_matrix(unit_diag_scale(A)[0], "tril2"))) if wide_ok(A) else (None, None),
 }
 models = {}
 for c in args.ckpt:
@@ -47,10 +52,12 @@ for c in args.ckpt:
     m = PrecondGNN(residual=ck.get("residual", True)); m.load_state_dict(ck["state"]); m.eval()
     name = pathlib.Path(c).stem
     models[name] = (m, ck["pattern"])
-    methods[name] = (lambda A, m=m, p=ck["pattern"]: (gnn_preconditioner(m, A, p), None))
+    methods[name] = (lambda A, m=m, p=ck["pattern"]: (gnn_preconditioner(m, A, p), None) if (p == "tril" or wide_ok(A)) else (None, None))
 
 df = evaluate(mats, methods)
-df.loc[df.method == "ic0", "iters"] = df.loc[df.method == "ic0", "iters"].where(df.loc[df.method == "ic0", "n"] <= 4096)
+# rows where a method was skipped (returned no preconditioner) are really "none": blank them out
+skipped = ((df.method.str.startswith("gnn") & (df.setup_s < 1e-4)) | ((df.method == "ic0") & (df.n > 4096)) | ((df.method == "fsai_tril2") & df.apply(lambda r: r.n > 20000, axis=1)))
+df.loc[skipped, "iters"] = np.nan
 out = ROOT / "benchmarks" / "results" / "eval_all.csv"; df.to_csv(out, index=False)
 print(df.pivot_table(index="matrix", columns="method", values="iters").round(0).to_string())
 
