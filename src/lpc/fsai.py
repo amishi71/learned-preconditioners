@@ -46,3 +46,14 @@ def frobenius_loss(G, A) -> float:
     n = A.shape[0]
     R = G @ sp.csr_matrix(A) @ G.T - sp.identity(n)
     return float(R.multiply(R).sum() / n)
+
+
+def kaporin_value(G, A) -> float:
+    """Kaporin conditioning number K = (tr(GAG^T)/n) / det(GAG^T)^(1/n) >= 1, equal to 1 iff GAG^T ~ cI.
+    Scale-invariant, so comparable across matrices. FSAI is exactly the minimizer of K on a fixed pattern.
+    For lower-triangular G: det(GAG^T) = prod(diag G)^2 * det(A). Dense slogdet(A): use for n <~ 2000."""
+    n = A.shape[0]
+    G = sp.csr_matrix(G)
+    tr = (G @ sp.csr_matrix(A) @ G.T).diagonal().sum()
+    logdet = 2.0 * np.log(G.diagonal()).sum() + np.linalg.slogdet(sp.csr_matrix(A).toarray())[1]
+    return float(np.exp(np.log(tr / n) - logdet / n))

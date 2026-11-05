@@ -45,15 +45,16 @@ df.to_csv(pathlib.Path(__file__).parent / "results" / "correlation_study.csv", i
 
 none = df[df.method == "none"].set_index("matrix").iters
 df["rel_iters"] = df.apply(lambda r: r.iters / none[r.matrix], axis=1)
-d = df[df.method != "none"].dropna(subset=["loss"])
+d = df[(df.method != "none")].dropna(subset=["loss", "kaporin"])
 d = d[d.converged]
-x, y = np.log(d.loss), np.log(d.rel_iters)
-r2_pooled = np.corrcoef(x, y)[0, 1] ** 2
-within = []
-for m, grp in d.groupby("matrix"):
-    if grp.loss.nunique() > 2:
-        within.append(grp[["loss", "iters"]].corr(method="spearman").iloc[0, 1])
 print(f"matrices: {df.matrix.nunique()}, preconditioners/matrix: {len(methods)-1}, converged rows: {len(d)}/{(df.method!='none').sum()}")
-print(f"pooled R^2 (log loss vs log relative iterations): {r2_pooled:.3f}")
-print(f"within-matrix Spearman: mean {np.mean(within):.3f}, min {np.min(within):.3f}")
-print(d.groupby("method")[["loss", "rel_iters"]].mean().round(3))
+summary = {}
+for col, tf in (("loss", np.log), ("kaporin", np.log)):
+    x, y = tf(d[col]), np.log(d.rel_iters)
+    r2 = np.corrcoef(x, y)[0, 1] ** 2
+    within = [grp[[col, "iters"]].corr(method="spearman").iloc[0, 1] for _, grp in d.groupby("matrix") if grp[col].nunique() > 2]
+    summary[col] = (r2, float(np.mean(within)), float(np.min(within)))
+    print(f"{col:8s} pooled R^2 (log-log vs rel. iters) = {r2:.3f} | within-matrix Spearman mean {np.mean(within):.3f}, min {np.min(within):.3f}")
+print(d.groupby("method")[["loss", "kaporin", "rel_iters"]].mean().round(3))
+pd.DataFrame(summary, index=["pooled_R2", "within_spearman_mean", "within_spearman_min"]).T.to_csv(
+    pathlib.Path(__file__).parent / "results" / "correlation_summary.csv")

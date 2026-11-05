@@ -1,5 +1,5 @@
 """Minimal test runner for environments without pytest: python scripts/run_tests.py"""
-import importlib.util, pathlib, sys, traceback
+import importlib.util, pathlib, sys, traceback, unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 ok = bad = 0
@@ -14,6 +14,8 @@ for f in sorted(pathlib.Path(__file__).resolve().parents[1].joinpath("tests").gl
         if name.startswith("test_"):
             try:
                 getattr(mod, name)(); ok += 1; print("PASS", f.name, name)
+            except unittest.SkipTest as e:
+                print("SKIP", f.name, name, e)
             except Exception:
                 bad += 1; print("FAIL", f.name, name); traceback.print_exc()
 print(f"{ok} passed, {bad} failed"); sys.exit(1 if bad else 0)

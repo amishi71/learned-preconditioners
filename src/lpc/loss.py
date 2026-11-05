@@ -36,3 +36,25 @@ def hutchinson_loss(Gvals, data, n, probes: int = 8):
     Z = (torch.randint(0, 2, (n, probes), device=Gvals.device) * 2 - 1).to(Gvals.dtype)
     R = residual_apply(data.pred_row, data.pred_col, Gvals, Ar, Ac, Av, Z, n)
     return (R ** 2).sum() / (probes * n)
+
+
+def kaporin_loss(Gvals, data, n, probes=None):
+    """log K(G) minus the constant (1/n) log det(A_hat), where K is the Kaporin conditioning number
+        K = (tr(G A G^T)/n) / det(G A G^T)^(1/n),  and for lower-triangular G: log det(G A G^T) = 2 sum log g_ii + log det A.
+    So   loss = log(tr(G A G^T)/n) - (2/n) sum_i log g_ii.
+    FSAI is the exact minimizer of K on a fixed pattern; K ranked CG iteration counts far better than the
+    Frobenius loss in benchmarks/correlation_study.py. Uses only matvecs (no determinant needed).
+    probes=None -> exact trace (n columns, fine for n <= ~1024); else Hutchinson trace with `probes` Rademacher vectors
+    (slightly biased inside the log; use >= 16)."""
+    Ar, Ac, Av = full_coo(data.a_row, data.a_col, data.a_val, data.a_is_diag)
+    if probes is None:
+        Z = torch.eye(n, dtype=Gvals.dtype, device=Gvals.device)
+        scale = 1.0
+    else:
+        Z = (torch.randint(0, 2, (n, probes), device=Gvals.device) * 2 - 1).to(Gvals.dtype)
+        scale = 1.0 / probes
+    W = spmm(data.pred_col, data.pred_row, Gvals, Z, n)      # G^T Z
+    AW = spmm(Ar, Ac, Av, W, n)
+    tr = (W * AW).sum() * scale
+    logdiag = torch.log(Gvals[data.pred_is_diag]).sum()
+    return torch.log(tr / n) - 2.0 * logdiag / n

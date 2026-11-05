@@ -81,3 +81,16 @@ def ic0_precond(A) -> spla.LinearOperator:
         return spla.spsolve_triangular(LT, y, lower=False)
 
     return spla.LinearOperator(A.shape, matvec=mv, dtype=A.dtype)
+
+
+def cg_history(A, b, M=None, rtol: float = 1e-8, maxiter: int | None = None):
+    """Like cg_count but also returns the relative residual after each iteration (for convergence plots)."""
+    hist = []
+    nb = np.linalg.norm(b)
+
+    def cb(xk):
+        hist.append(float(np.linalg.norm(b - A @ xk) / nb))
+
+    maxiter = maxiter or 10 * A.shape[0]
+    x, info = spla.cg(A, b, rtol=rtol, atol=0.0, M=M, maxiter=maxiter, callback=cb)
+    return np.array(hist), info == 0

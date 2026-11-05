@@ -14,8 +14,11 @@ _C = math.log(math.e - 1.0)  # softplus(_C) == 1
 
 
 class PrecondGNN(nn.Module):
-    def __init__(self, in_dim: int = 3, hidden: int = 64, layers: int = 3):
+    def __init__(self, in_dim: int = 3, hidden: int = 64, layers: int = 3, residual: bool = True):
+        """residual=True: output is G = I + dG (starts exactly at Jacobi). residual=False: ablation, raw softplus diagonal
+        and default init (starts from an arbitrary G)."""
         super().__init__()
+        self.residual = residual
         self.enc = nn.Linear(in_dim, hidden)
         self.convs = nn.ModuleList(
             GINEConv(nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, hidden)), edge_dim=1)
@@ -23,8 +26,9 @@ class PrecondGNN(nn.Module):
         )
         self.norms = nn.ModuleList(nn.LayerNorm(hidden) for _ in range(layers))
         self.head = nn.Sequential(nn.Linear(2 * hidden + 2, hidden), nn.ReLU(), nn.Linear(hidden, 1))
-        nn.init.zeros_(self.head[-1].weight)  # start exactly at G = I (Jacobi)
-        nn.init.zeros_(self.head[-1].bias)
+        if residual:
+            nn.init.zeros_(self.head[-1].weight)  # start exactly at G = I (Jacobi)
+            nn.init.zeros_(self.head[-1].bias)
 
     def forward(self, data):
         h = F.relu(self.enc(data.x))
@@ -33,7 +37,7 @@ class PrecondGNN(nn.Module):
         i, j = data.pred_row, data.pred_col
         feat = torch.cat([h[i], h[j], data.pred_val[:, None], data.pred_is_diag[:, None].float()], dim=1)
         raw = self.head(feat).squeeze(-1)
-        return torch.where(data.pred_is_diag, F.softplus(raw + _C), raw)  # values of G on the pattern
+        return torch.where(data.pred_is_diag, F.softplus(raw + (_C if self.residual else 0.0)), raw)  # values of G on the pattern
 
 
 def unscale_columns(vals, col, scale):

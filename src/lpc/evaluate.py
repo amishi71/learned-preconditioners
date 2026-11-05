@@ -6,7 +6,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from .fsai import frobenius_loss
+from .fsai import frobenius_loss, kaporin_value
 from .solvers import cg_count
 
 
@@ -31,5 +31,6 @@ def evaluate(matrices: dict, methods: dict, seed: int = 0, rtol: float = 1e-8) -
             r = cg_count(A, b, M=M, rtol=rtol)
             rows.append(dict(matrix=mname, n=A.shape[0], method=name, iters=r.iters, converged=r.converged,
                              relres=r.relres, setup_s=setup, apply_s=apply_t,
-                             loss=(frobenius_loss(G, A) if G is not None else np.nan)))
+                             loss=(frobenius_loss(G, A) if G is not None else np.nan),
+                             kaporin=(kaporin_value(G, A) if (G is not None and A.shape[0] <= 2500) else np.nan)))
     return pd.DataFrame(rows)
