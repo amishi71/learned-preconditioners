@@ -4,7 +4,7 @@ import pathlib, sys
 import numpy as np, scipy.sparse as sp, torch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-from lpc.fsai import fsai, frobenius_loss, kaporin_value, fsai_precond
+from lpc.fsai import fsai, frobenius_loss, kaporin_value, fsai_precond, spd_logdet
 from lpc.graph import build_graph, to_pyg, unit_diag_scale
 from lpc.loss import exact_loss, hutchinson_loss, kaporin_loss
 from lpc.matrices import poisson2d
@@ -19,12 +19,12 @@ Ah, _ = unit_diag_scale(A)
 g = build_graph(A); data = to_pyg(g)
 Gf = fsai(Ah)
 print(f"FSAI reference: frobenius {frobenius_loss(Gf, Ah):.4f}  kaporin {kaporin_value(Gf, Ah):.4f}")
-logdetA = np.linalg.slogdet(Ah.toarray())[1]
+logdetA = spd_logdet(Ah)
 
 model = PrecondGNN()
 G0 = model(data)
 print("init is Jacobi (G = I):", bool(torch.allclose(G0, torch.tensor(g.is_diag, dtype=torch.float32))))
-print(f"init losses: frobenius {exact_loss(G0, data, n).item():.4f}  kaporin K {np.exp(kaporin_loss(G0, data, n).item() + logdetA / n):.4f}")
+print(f"init losses: frobenius {exact_loss(G0, data, n).item():.4f}  kaporin K {np.exp(kaporin_loss(G0, data, n).item() - logdetA / n):.4f}")
 
 # (2) estimator agreement (perturb the zero-initialised head so G != I)
 for p in model.head[-1].parameters():

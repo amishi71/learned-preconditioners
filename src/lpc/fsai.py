@@ -48,6 +48,12 @@ def frobenius_loss(G, A) -> float:
     return float(R.multiply(R).sum() / n)
 
 
+def spd_logdet(A) -> float:
+    """log det of an SPD matrix via dense Cholesky (raises LinAlgError if A is not SPD)."""
+    L = np.linalg.cholesky(sp.csr_matrix(A).toarray())
+    return 2.0 * float(np.log(np.diag(L)).sum())
+
+
 def kaporin_value(G, A) -> float:
     """Kaporin conditioning number K = (tr(GAG^T)/n) / det(GAG^T)^(1/n) >= 1, equal to 1 iff GAG^T ~ cI.
     Scale-invariant, so comparable across matrices. FSAI is exactly the minimizer of K on a fixed pattern.
@@ -55,5 +61,5 @@ def kaporin_value(G, A) -> float:
     n = A.shape[0]
     G = sp.csr_matrix(G)
     tr = (G @ sp.csr_matrix(A) @ G.T).diagonal().sum()
-    logdet = 2.0 * np.log(G.diagonal()).sum() + np.linalg.slogdet(sp.csr_matrix(A).toarray())[1]
+    logdet = 2.0 * np.log(G.diagonal()).sum() + spd_logdet(A)
     return float(np.exp(np.log(tr / n) - logdet / n))

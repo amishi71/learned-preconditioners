@@ -93,3 +93,17 @@ def test_cg_history_matches_count():
     b = np.random.default_rng(0).normal(size=A.shape[0])
     h, ok = cg_history(A, b)
     assert ok and len(h) == cg_count(A, b).iters and h[-1] < 1e-8
+
+
+def test_kaporin_loss_formula_sign():
+    """loss = log(tr/n) - (2/n) sum log g_ii  equals  log K + logdet(A_hat)/n  (so K = exp(loss - logdet/n))."""
+    from lpc.fsai import spd_logdet
+    A, Ah, g, Gh, vals = _setup()
+    rng = np.random.default_rng(0)
+    vals = vals * (1 + 0.1 * rng.normal(size=vals.shape))
+    G = sp.csr_matrix((vals, (g.row, g.col)), shape=Ah.shape)
+    n = g.n
+    tr = (G @ Ah @ G.T).diagonal().sum()
+    loss = np.log(tr / n) - 2.0 * np.log(G.diagonal()).sum() / n
+    assert abs(np.exp(loss - spd_logdet(Ah) / n) - kaporin_value(G, Ah)) < 1e-9
+    assert np.exp(loss + spd_logdet(Ah) / n) != kaporin_value(G, Ah)   # the wrong sign must NOT match

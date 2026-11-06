@@ -15,7 +15,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 from lpc.fsai import fsai, fsai_precond
 from lpc.graph import build_graph, pattern_matrix, to_pyg, unit_diag_scale
 from lpc.loss import exact_loss, hutchinson_loss, kaporin_loss
-from lpc.matrices import poisson2d, sample_training_matrix
+from lpc.matrices import poisson2d, sample_training_matrix, sample_wide_training_matrix
 from lpc.model import PrecondGNN
 from lpc.precond import gnn_preconditioner
 from lpc.seed import set_seed
@@ -30,13 +30,15 @@ ap.add_argument("--exact_max_n", type=int, default=1024)
 ap.add_argument("--probes", type=int, default=16)
 ap.add_argument("--val_every", type=int, default=250)
 ap.add_argument("--no_residual", action="store_true", help="ablation: no G = I + dG parametrization (model.residual=False)")
+ap.add_argument("--robust", action="store_true", help="degree-robust model (mean aggregation, log features)")
+ap.add_argument("--dist", default="narrow", choices=["narrow", "wide"], help="training matrix family")
 ap.add_argument("--out", default=None)
 args = ap.parse_args()
-tag = f"{args.loss}_{args.pattern}" + ("_nores" if args.no_residual else "")
+tag = f"{args.loss}_{args.pattern}" + ("_nores" if args.no_residual else "") + ("_wide" if args.dist == "wide" else "") + ("_robust" if args.robust else "")
 out = args.out or f"checkpoints/gnn_{tag}.pt"
 
 rng = set_seed(0)
-model = PrecondGNN(residual=not args.no_residual)
+model = PrecondGNN(residual=not args.no_residual, robust=args.robust)
 opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
 sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.steps)
 
@@ -57,7 +59,7 @@ def loss_fn(data, n):
 
 best = 1e9
 for step in range(args.steps + 1):
-    g = build_graph(sample_training_matrix(rng), args.pattern)
+    g = build_graph((sample_wide_training_matrix if args.dist == "wide" else sample_training_matrix)(rng), args.pattern)
     data = to_pyg(g)
     loss = loss_fn(data, g.n)
     opt.zero_grad(); loss.backward()
@@ -70,5 +72,12 @@ for step in range(args.steps + 1):
         if its < best:
             best = its
             pathlib.Path(out).parent.mkdir(exist_ok=True)
-            torch.save({"state": model.state_dict(), "pattern": args.pattern, "loss": args.loss, "residual": not args.no_residual, "val_iters": its}, out)
-print(f"best val iters {best}; checkpoint: {out}")
+            torch.save({"state": model.state_dict(), "pattern": args.pattern, "loss": args.loss, "residual": not args.no_residual, "robust": args.robust, "val_iters": its}, out)
+# Always keep the FINAL weights too: "best" is the first checkpoint to hit the minimum validation iteration count,
+# which on a plateau is an EARLY step, and that metric is on an in-distribution matrix (see README).
+its_final = cg_count(Aval, bval, M=gnn_preconditioner(model, Aval, args.pattern)).iters
+final = out.replace(".pt", "_final.pt")
+torch.save({"state": model.state_dict(), "pattern": args.pattern, "loss": args.loss,
+            "residual": not args.no_residual, "robust": args.robust, "val_iters": its_final, "steps": args.steps}, final)
+print(f"best val iters {best}; checkpoint (early-best): {out}")
+print(f"final val iters {its_final}; checkpoint (final weights): {final}")

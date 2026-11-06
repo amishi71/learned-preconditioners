@@ -1,0 +1,20 @@
+targets on Poisson 32x32: none=100  classical FSAI(tril)=58
+step     0  train kaporin -0.0012   val CG iters (32^2) 89  [FSAI 58]
+step   250  train kaporin -0.1156   val CG iters (32^2) 58  [FSAI 58]
+step   500  train kaporin -0.2554   val CG iters (32^2) 57  [FSAI 58]
+step   750  train kaporin -0.2570   val CG iters (32^2) 58  [FSAI 58]
+step  1000  train kaporin -0.1363   val CG iters (32^2) 59  [FSAI 58]
+step  1250  train kaporin -0.1291   val CG iters (32^2) 58  [FSAI 58]
+step  1500  train kaporin -0.1339   val CG iters (32^2) 58  [FSAI 58]
+step  1750  train kaporin -0.2400   val CG iters (32^2) 58  [FSAI 58]
+step  2000  train kaporin -0.2210   val CG iters (32^2) 58  [FSAI 58]
+step  2250  train kaporin -0.1945   val CG iters (32^2) 58  [FSAI 58]
+step  2500  train kaporin -0.2363   val CG iters (32^2) 59  [FSAI 58]
+step  2750  train kaporin -0.1290   val CG iters (32^2) 58  [FSAI 58]
+step  3000  train kaporin -0.1190   val CG iters (32^2) 59  [FSAI 58]
+step  3250  train kaporin -0.1342   val CG iters (32^2) 58  [FSAI 58]
+step  3500  train kaporin -0.2080   val CG iters (32^2) 59  [FSAI 58]
+step  3750  train kaporin -0.2644   val CG iters (32^2) 58  [FSAI 58]
+step  4000  train kaporin -0.1178   val CG iters (32^2) 58  [FSAI 58]
+best val iters 57; checkpoint (early-best): checkpoints/gnn_kaporin_tril.pt
+final val iters 58; checkpoint (final weights): checkpoints/gnn_kaporin_tril_final.pt

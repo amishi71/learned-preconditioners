@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import scipy.sparse as sp
 
-from lpc.fsai import frobenius_loss, kaporin_value
+from lpc.fsai import frobenius_loss, kaporin_value, spd_logdet
 from lpc.graph import build_graph, to_pyg, unit_diag_scale
 from lpc.matrices import diffusion2d, poisson2d
 from lpc.solvers import cg_count, jacobi
@@ -61,8 +61,9 @@ def test_torch_losses_match_numpy():
     G = _perturbed_model(torch, M)(d)
     Gs = sp.csr_matrix((G.detach().numpy().astype(float), (g.row, g.col)), shape=(g.n, g.n))
     assert abs(L.exact_loss(G, d, g.n).item() - frobenius_loss(Gs, Ah)) < 1e-3 * max(1.0, frobenius_loss(Gs, Ah))
-    k = np.exp(L.kaporin_loss(G, d, g.n).item() + np.linalg.slogdet(Ah.toarray())[1] / g.n)
-    assert abs(k - kaporin_value(Gs, Ah)) < 1e-3
+    k = np.exp(L.kaporin_loss(G, d, g.n).item() - spd_logdet(Ah) / g.n)
+    kv = kaporin_value(Gs, Ah)
+    assert abs(k - kv) < 1e-3, f"torch K={k}, numpy K={kv}"
 
 
 def test_hutchinson_close_to_exact():
@@ -95,3 +96,23 @@ def test_untrained_model_equals_jacobi_in_cg():
     b = np.random.default_rng(0).normal(size=A.shape[0])
     it_gnn = cg_count(A, b, M=gnn_preconditioner(M.PrecondGNN(), A)).iters
     assert it_gnn == cg_count(A, b, M=jacobi(A)).iters
+
+
+def test_robust_variant_init_jacobi_valid_and_degree_stable():
+    torch, M, L = _stack()
+    A = diffusion2d(6, ax=1.0, ay=0.1)
+    g = build_graph(A); d = to_pyg(g)
+    m = M.PrecondGNN(robust=True)
+    assert torch.allclose(m(d), torch.tensor(g.is_diag, dtype=torch.float32), atol=1e-6)      # starts at Jacobi
+    G = _perturbed_model(torch, M, std=0.3)(d)                                                  # non-robust reference still fine
+    mr = M.PrecondGNN(robust=True)
+    for p in mr.head[-1].parameters():
+        torch.nn.init.normal_(p, std=0.3)
+    Gr = mr(d).detach().numpy().astype(float)
+    Gs = sp.csr_matrix((Gr, (g.row, g.col)), shape=(g.n, g.n))
+    assert (Gs.diagonal() > 0).all() and abs(sp.triu(Gs, k=1)).sum() == 0
+    # denser rows must not blow up hidden activations: a 27-point matrix gives outputs of the same order as a 5-point one
+    from lpc.matrices import q1hex
+    g2 = build_graph(q1hex(6)); d2 = to_pyg(g2)
+    out2 = mr(d2).detach().abs().max().item()
+    assert np.isfinite(out2) and out2 < 50 * max(1.0, np.abs(Gr).max())

@@ -8,3 +8,5 @@ checkpoints/
 wandb/
 *.pt
 .env
+.venv/
+!models/*.pt

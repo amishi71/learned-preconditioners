@@ -14,14 +14,19 @@ _C = math.log(math.e - 1.0)  # softplus(_C) == 1
 
 
 class PrecondGNN(nn.Module):
-    def __init__(self, in_dim: int = 3, hidden: int = 64, layers: int = 3, residual: bool = True):
+    def __init__(self, in_dim: int = 3, hidden: int = 64, layers: int = 3, residual: bool = True, robust: bool = False):
         """residual=True: output is G = I + dG (starts exactly at Jacobi). residual=False: ablation, raw softplus diagonal
         and default init (starts from an arbitrary G)."""
         super().__init__()
         self.residual = residual
+        # robust=True: mean (not sum) neighbour aggregation and log-scaled degree / off-diagonal-sum inputs, so activations
+        # do not grow with row length. Motivation: sum aggregation + raw degree extrapolate badly on denser rows than seen
+        # in training (see scripts/diagnose_ood.py).
+        self.robust = robust
         self.enc = nn.Linear(in_dim, hidden)
         self.convs = nn.ModuleList(
-            GINEConv(nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, hidden)), edge_dim=1)
+            GINEConv(nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, hidden)), edge_dim=1,
+                     aggr="mean" if robust else "add")
             for _ in range(layers)
         )
         self.norms = nn.ModuleList(nn.LayerNorm(hidden) for _ in range(layers))
@@ -31,7 +36,10 @@ class PrecondGNN(nn.Module):
             nn.init.zeros_(self.head[-1].bias)
 
     def forward(self, data):
-        h = F.relu(self.enc(data.x))
+        x = data.x
+        if self.robust:
+            x = torch.stack([x[:, 0], torch.log1p(x[:, 1]), torch.log1p(x[:, 2])], dim=1)
+        h = F.relu(self.enc(x))
         for conv, norm in zip(self.convs, self.norms):
             h = h + F.relu(norm(conv(h, data.edge_index, data.edge_attr)))
         i, j = data.pred_row, data.pred_col

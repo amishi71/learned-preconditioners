@@ -1,0 +1,20 @@
+targets on Poisson 32x32: none=100  classical FSAI(tril)=58
+step     0  train frobenius +0.4792   val CG iters (32^2) 89  [FSAI 58]
+step   250  train frobenius +0.0676   val CG iters (32^2) 61  [FSAI 58]
+step   500  train frobenius +0.2850   val CG iters (32^2) 59  [FSAI 58]
+step   750  train frobenius +0.2685   val CG iters (32^2) 59  [FSAI 58]
+step  1000  train frobenius +0.0859   val CG iters (32^2) 59  [FSAI 58]
+step  1250  train frobenius +0.0707   val CG iters (32^2) 60  [FSAI 58]
+step  1500  train frobenius +0.0761   val CG iters (32^2) 59  [FSAI 58]
+step  1750  train frobenius +0.1516   val CG iters (32^2) 59  [FSAI 58]
+step  2000  train frobenius +0.1321   val CG iters (32^2) 59  [FSAI 58]
+step  2250  train frobenius +0.1068   val CG iters (32^2) 59  [FSAI 58]
+step  2500  train frobenius +0.1432   val CG iters (32^2) 59  [FSAI 58]
+step  2750  train frobenius +0.0714   val CG iters (32^2) 60  [FSAI 58]
+step  3000  train frobenius +0.0622   val CG iters (32^2) 60  [FSAI 58]
+step  3250  train frobenius +0.0746   val CG iters (32^2) 60  [FSAI 58]
+step  3500  train frobenius +0.1146   val CG iters (32^2) 60  [FSAI 58]
+step  3750  train frobenius +0.1737   val CG iters (32^2) 60  [FSAI 58]
+step  4000  train frobenius +0.0607   val CG iters (32^2) 60  [FSAI 58]
+best val iters 59; checkpoint (early-best): checkpoints/gnn_frobenius_tril.pt
+final val iters 60; checkpoint (final weights): checkpoints/gnn_frobenius_tril_final.pt
