@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # One command after training: evaluate every final checkpoint -> tables -> README -> figures -> notebook -> tests.
-#   bash scripts/finalize.sh            (run from the project root, venv active)
+#   bash scripts/finalize.sh                 (run from the project root, venv active)
+#   bash scripts/finalize.sh --report-only   (skip the slow evaluation; rebuild tables, figures, notebook from the existing CSV)
 set -e
 cd "$(dirname "$0")/.."
-FLAGS=""; for f in checkpoints/*_final.pt; do FLAGS="$FLAGS --ckpt $f"; done
-[ -z "$FLAGS" ] && { echo "no checkpoints/*_final.pt found - train first"; exit 1; }
-EXTRA=""
-[ -f data/Pres_Poisson.mtx ] && EXTRA="$EXTRA --mtx data/Pres_Poisson.mtx"
-python -c "import pyamg" 2>/dev/null && EXTRA="$EXTRA --amg"
-echo "== evaluating:$FLAGS $EXTRA"
-python scripts/evaluate_checkpoint.py $FLAGS $EXTRA 2>&1 | grep -v -i -E "warn|spmatrix|sparse array|sparray|default return|Unless you|on 2D shapes|migration"
+if [ "${1:-}" != "--report-only" ]; then
+  FLAGS=""; for f in checkpoints/*_final.pt; do FLAGS="$FLAGS --ckpt $f"; done
+  [ -z "$FLAGS" ] && { echo "no checkpoints/*_final.pt found - train first"; exit 1; }
+  EXTRA=""
+  [ -f data/Pres_Poisson.mtx ] && EXTRA="$EXTRA --mtx data/Pres_Poisson.mtx"
+  python -c "import pyamg" 2>/dev/null && EXTRA="$EXTRA --amg"
+  echo "== evaluating:$FLAGS $EXTRA"
+  python scripts/evaluate_checkpoint.py $FLAGS $EXTRA 2>&1 | grep -v -i -E "warn|spmatrix|sparse array|sparray|default return|Unless you|on 2D shapes|migration"
+else
+  echo "== --report-only: reusing benchmarks/results/eval_all.csv"
+fi
 echo "== tables -> README"
 python scripts/make_results_tables.py --readme README.md > /dev/null && echo done
 echo "== spectrum figure"

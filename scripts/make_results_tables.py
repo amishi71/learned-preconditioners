@@ -98,15 +98,32 @@ def main():
         if notes:
             out.append("\n" + "\n".join(notes))
     text = "\n".join(out) + "\n"
+
+    # compact "at a glance" table for the top of the README (representative matrices, key methods)
+    g_rows = [m for m in ["poisson64", "poisson128", "ood_fem_delaunay_4000", "heldout_q1hex_16", "suitesparse"] if m in it.index]
+    g_cols = [m for m in ["none", "ic0", "pyamg_amg", "fsai_tril"] if m in it.columns]
+    prefer = [m for m in ["gnn_kaporin_tril_final", "gnn_kaporin_tril_wide_robust_final"] if m in it.columns]
+    g_cols += prefer or gnns[:2]
+    glance = ["| Matrix | " + " | ".join(pretty(m) for m in g_cols) + " |", "|---|" + "---|" * len(g_cols)]
+    for mat in g_rows:
+        glance.append(f"| {LABELS.get(mat, mat)} | " + " | ".join(cell(mat, m) for m in g_cols) + " |")
+    glance_text = "\n".join(glance) + "\n"
     (RES / "results_tables.md").write_text(text)
     print(text)
     if args.readme:
         p = pathlib.Path(args.readme); s = p.read_text()
-        pat = re.compile(r"(<!-- RESULTS:START -->).*?(<!-- RESULTS:END -->)", re.S)
-        assert pat.search(s), "README has no RESULTS markers"
-        p.write_text(pat.sub(lambda m: m.group(1) + "\n" + text + m.group(2), s))
-        print(f"README updated: {args.readme}")
 
+        def inject(doc, tag, body, required):
+            pat = re.compile(rf"(<!-- {tag}:START -->).*?(<!-- {tag}:END -->)", re.S)
+            if not pat.search(doc):
+                assert not required, f"README has no {tag} markers"
+                return doc
+            return pat.sub(lambda m: m.group(1) + "\n" + body + m.group(2), doc)
+
+        s = inject(s, "RESULTS", text, required=True)
+        s = inject(s, "GLANCE", glance_text, required=False)
+        p.write_text(s)
+        print(f"README updated: {args.readme}")
 
 if __name__ == "__main__":
     main()
