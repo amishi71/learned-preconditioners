@@ -57,7 +57,7 @@ Requires Python 3.10+. CPU only; no GPU is used. Developed and tested on macOS (
 PyG 2.8, NumPy 2.5 and SciPy 1.18.
 
 ```bash
-git clone <this-repository> && cd learned-preconditioners
+git clone https://github.com/amishi71/learned-preconditioners.git && cd learned-preconditioners
 python3 -m venv .venv && source .venv/bin/activate
 pip install numpy scipy pandas matplotlib scikit-learn pytest jupyter ipykernel pyamg torch torch_geometric
 pip install -e .
