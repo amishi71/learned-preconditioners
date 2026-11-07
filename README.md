@@ -64,6 +64,11 @@ pip install -e .
 python scripts/run_tests.py        # expect: 35 passed, 0 failed
 ```
 
+**Troubleshooting (macOS).** If `import lpc` fails after `pip install -e .` even though `pip show lpc` works, Python may be skipping the
+editable-install `.pth` file because it carries macOS's *hidden* flag (`python -v -c pass 2>&1 | grep pth` then prints `Skipping hidden .pth file`).
+`chflags nohidden .venv/lib/python3*/site-packages/*.pth` clears the flag but did not always stick. A regular install, `pip install .`, avoids
+`.pth` files entirely (re-run it after editing `src/`), as does `export PYTHONPATH="$PWD/src"`.
+
 `environment.yml` is a conda alternative that was not used for the reported results.
 
 ## Quick start

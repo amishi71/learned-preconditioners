@@ -11,3 +11,5 @@ wandb/
 .venv/
 !models/*.pt
 *.egg-info/
+build/
+dist/
