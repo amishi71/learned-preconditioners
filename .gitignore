@@ -10,3 +10,4 @@ wandb/
 .env
 .venv/
 !models/*.pt
+*.egg-info/
